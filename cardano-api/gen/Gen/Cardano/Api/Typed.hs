@@ -40,6 +40,7 @@ module Gen.Cardano.Api.Typed
   , genStakeAddress
   , genTx
   , genTxBody
+  , genTxBodyContent
   , genLovelace
   , genValue
   , genValueDefault
