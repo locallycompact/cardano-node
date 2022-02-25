@@ -38,7 +38,8 @@ import           Cardano.Node.Queries (NodeKernelData)
 import           Cardano.Node.Startup
 import           Cardano.Node.TraceConstraints
 import           Cardano.Node.Tracing
-import           Cardano.Node.Tracing.StateRep (NodeState (..))
+import           Cardano.Node.Tracing.Peers
+import qualified Cardano.Node.Tracing.StateRep as SR
 import           "contra-tracer" Control.Tracer (Tracer (..))
 import           Ouroboros.Consensus.Ledger.Inspect (LedgerEvent)
 import           Ouroboros.Consensus.MiniProtocol.ChainSync.Client (TraceChainSyncClientEvent)
@@ -48,6 +49,7 @@ import qualified Ouroboros.Consensus.Network.NodeToNode as NodeToNode
 import qualified Ouroboros.Consensus.Network.NodeToNode as NtN
 import           Ouroboros.Consensus.Node (NetworkP2PMode (..))
 import qualified Ouroboros.Consensus.Node.Run as Consensus
+import           Ouroboros.Consensus.Node.NetworkProtocolVersion
 import qualified Ouroboros.Consensus.Node.Tracers as Consensus
 import qualified Ouroboros.Consensus.Storage.ChainDB as ChainDB
 import qualified Ouroboros.Consensus.Storage.LedgerDB.OnDisk as LedgerDB
@@ -57,8 +59,8 @@ import           Ouroboros.Network.ConnectionId (ConnectionId)
 import qualified Ouroboros.Network.Diffusion as Diffusion
 import qualified Ouroboros.Network.Diffusion.NonP2P as NonP2P
 import qualified Ouroboros.Network.Diffusion.P2P as P2P
-import           Ouroboros.Network.NodeToClient (LocalAddress, NodeToClientVersion)
-import           Ouroboros.Network.NodeToNode (NodeToNodeVersion, RemoteAddress)
+import           Ouroboros.Network.NodeToClient (LocalAddress)
+import           Ouroboros.Network.NodeToNode (RemoteAddress)
 
 -- | Construct tracers for all system components.
 --
@@ -66,7 +68,6 @@ mkDispatchTracers
   :: forall blk p2p.
   ( Consensus.RunNode blk
   , TraceConstraints blk
-
   , LogFormatting (LedgerEvent blk)
   , LogFormatting
     (TraceLabelPeer
@@ -91,6 +92,10 @@ mkDispatchTracers nodeKernel trBase trForward mbTrEKG trDataPoint trConfig enabl
     nodeStateTr <- mkDataPointTracer
                 trDataPoint
                 (const ["NodeState"])
+
+    nodePeersTr <- mkDataPointTracer
+                trDataPoint
+                (const ["NodePeers"])
 
     -- Resource tracer
     resourcesTr <- mkCardanoTracer
@@ -185,25 +190,19 @@ mkDispatchTracers nodeKernel trBase trForward mbTrEKG trDataPoint trConfig enabl
     diffusionTrExtra :: Diffusion.ExtraTracers p2p <-
       mkDiffusionTracersExtra trBase trForward mbTrEKG trDataPoint trConfig enableP2P
     pure Tracers
-      { chainDBTracer = Tracer (traceWith chainDBTr')
-                        <> Tracer (traceWith replayBlockTr')
+      { chainDBTracer = Tracer (\x -> traceWith chainDBTr' x >> SR.traceNodeStateChainDB nodeStateTr x)
+                     <> Tracer (\x -> traceWith replayBlockTr' x >> SR.traceNodeStateChainDB nodeStateTr x)
       , consensusTracers = consensusTr
       , nodeToClientTracers = nodeToClientTr
       , nodeToNodeTracers = nodeToNodeTr
       , diffusionTracers = diffusionTr
       , diffusionTracersExtra = diffusionTrExtra
-      , startupTracer = Tracer $ \x -> do
-                          traceWith startupTr x
-                          traceWith nodeStateTr $ NodeStartup (ppStartupInfoTrace x)
-      , shutdownTracer = Tracer $ \x -> do
-                           traceWith shutdownTr x
-                           traceWith nodeStateTr $ NodeShutdown x
+      , startupTracer = Tracer $ \x -> traceWith startupTr x >> SR.traceNodeStateStartup nodeStateTr x
+      , shutdownTracer = Tracer $ \x -> traceWith shutdownTr x >> SR.traceNodeStateShutdown nodeStateTr x
       , nodeInfoTracer = Tracer (traceWith nodeInfoTr)
       , nodeStateTracer = Tracer (traceWith nodeStateTr)
       , resourcesTracer = Tracer (traceWith resourcesTr)
-      , peersTracer = Tracer $ \x -> do
-                        traceWith peersTr x
-                        traceWith nodeStateTr $ NodePeers (map ppPeer x)
+      , peersTracer = Tracer $ \x -> traceWith peersTr x >> traceNodePeers nodePeersTr x
     }
 
 mkConsensusTracers :: forall blk.

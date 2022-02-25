@@ -1,15 +1,17 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Cardano.Node.Startup where
 
 import           Prelude
 
-import           Data.Aeson (FromJSON, ToJSON)
+import           Data.Aeson
 import           Data.Map (Map)
 import           Data.Text (Text, pack)
 import           Data.Time.Clock (NominalDiffTime, UTCTime)
@@ -122,13 +124,13 @@ data BasicInfoShelleyBased = BasicInfoShelleyBased {
   , bisSlotLength        :: NominalDiffTime
   , bisEpochLength       :: Word64
   , bisSlotsPerKESPeriod :: Word64
-}
+  }
 
 data BasicInfoByron = BasicInfoByron {
     bibSystemStartTime :: UTCTime
   , bibSlotLength      :: NominalDiffTime
   , bibEpochLength     :: Word64
-}
+  }
 
 data BasicInfoNetwork = BasicInfoNetwork {
     niAddresses     :: [SocketOrSocketInfo Socket.SockAddr Socket.SockAddr]

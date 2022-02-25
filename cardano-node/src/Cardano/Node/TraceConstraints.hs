@@ -39,7 +39,7 @@ type TraceConstraints blk =
     , HasTxId (GenTx blk)
     , LedgerQueries blk
     , StandardHash blk
-    , ToJSON   (TxId (GenTx blk))
+    , ToJSON (TxId (GenTx blk))
     , HasKESMetricsData blk
     , HasKESInfo blk
     , ConvertRawHash blk
