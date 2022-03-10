@@ -51,8 +51,10 @@ data InitChainSelection
   | InitChainSelected
   deriving (Generic, ToJSON)
 
+type SyncPercentage = Word8
+
 data AddedToCurrentChain
-  = AddedToCurrentChain EpochNo SlotNo
+  = AddedToCurrentChain !EpochNo !SlotNo !SyncPercentage
   deriving (Generic, ToJSON)
 
 data StartupState
@@ -115,10 +117,60 @@ traceNodeStateChainDB tr ev =
         _ -> return ()
     ChainDB.TraceAddBlockEvent ev' ->
       case ev' of
-        ChainDB.AddedToCurrentChain _ (ChainDB.NewTipInfo _ epoch sn _) _ _ ->
-          traceWith tr $ NodeAddBlock $ AddedToCurrentChain epoch (SlotNo sn)
+        ChainDB.AddedToCurrentChain _ (ChainDB.NewTipInfo currentTip ntEpoch _ _) _ _ -> do
+          -- The slot of the latest block consumed (our progress).
+          let RP.RealPoint slotProgress _ = currentTip
+          -- The slot corresponding to the latest wall-clock time (our target)
+          -- ...
+          let progressPct = 0
+          traceWith tr $ NodeAddBlock $ AddedToCurrentChain ntEpoch slotProgress progressPct
         _ -> return ()
     _ -> return ()
+
+
+{-
+start = 0 ................. current = N .... now = N + M
+
+M = tip - current
+
+% = (M / (N + M)) * 100%
+
+--------------------------------------------------------
+
+start = 0
+tip = это-у-нас-есть
+
+current = N
+
+now = N + M
+
+M = tip - current
+
+syncProgress% = (M / (N + M)) * 100%
+
+-}
+
+{-
+  data NewTipInfo blk = NewTipInfo
+    { newTipPoint       :: RealPoint blk
+      -- ^ The new tip of the current chain.
+    , newTipEpoch       :: EpochNo
+      -- ^ The epoch of the new tip.
+    , newTipSlotInEpoch :: Word64
+      -- ^ The slot in the epoch, i.e., the relative slot number, of the new
+      -- tip.
+    , newTipTrigger     :: RealPoint blk
+      -- ^ The new tip of the current chain ('newTipPoint') is the result of
+      -- performing chain selection for a /trigger/ block ('newTipTrigger').
+      -- In most cases, we add a new block to the tip of the current chain, in
+      -- which case the new tip /is/ the trigger block.
+      --
+      -- However, this is not always the case. For example, with our current
+      -- chain being A and having a disconnected C lying around, adding B will
+      -- result in A -> B -> C as the new chain. The trigger B /= the new tip
+      -- C.
+    }
+-}
 
 traceNodeStateStartup
   :: Trace IO NodeState
