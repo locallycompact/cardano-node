@@ -67,29 +67,33 @@ appDoc f DocMsg {..} = DocMsg  (f dmPrototype) dmMetricsMD dmMarkdown
 mapDoc :: (a -> b) -> [DocMsg a] -> [DocMsg b]
 mapDoc f = map (appDoc f)
 
-docTracer :: MonadIO m
-  => BackendConfig
+docTracer :: -- MonadIO m =>
+     BackendConfig
   -> Trace m FormattedMessage
-docTracer backendConfig = Trace $ T.arrow $ T.emit output
-  where
-    output p@(_, Just Document {}, FormattedMetrics m) =
-      docIt backendConfig (FormattedMetrics m) p
-    output (lk, Just c@Document {}, FormattedForwarder lo) =
-      docIt backendConfig (FormattedForwarder lo) (lk, Just c, lo)
-    output (lk, Just c@Document {}, FormattedHuman co msg) =
-      docIt backendConfig (FormattedHuman co "") (lk, Just c, msg)
-    output (lk, Just c@Document {}, FormattedMachine msg) =
-      docIt backendConfig (FormattedMachine "") (lk, Just c, msg)
-    output (_, _, _) = pure ()
+docTracer _backendConfig = undefined --TODO trace-dispatcher2
+  --
+  -- Trace $ T.arrow $ T.emit output
+  -- where
+  --   output p@(_, Just Document {}, FormattedMetrics m) =
+  --     docIt backendConfig (FormattedMetrics m) p
+  --   output (lk, Just c@Document {}, FormattedForwarder lo) =
+  --     docIt backendConfig (FormattedForwarder lo) (lk, Just c, lo)
+  --   output (lk, Just c@Document {}, FormattedHuman co msg) =
+  --     docIt backendConfig (FormattedHuman co "") (lk, Just c, msg)
+  --   output (lk, Just c@Document {}, FormattedMachine msg) =
+  --     docIt backendConfig (FormattedMachine "") (lk, Just c, msg)
+  --   output (_, _, _) = pure ()
 
-docTracerDatapoint :: MonadIO m
-  => BackendConfig
+docTracerDatapoint :: -- MonadIO m =>
+     BackendConfig
   -> Trace m DataPoint
-docTracerDatapoint backendConfig = Trace $ T.arrow $ T.emit output
-  where
-    output p@(_, Just Document {}, DataPoint m) =
-      docItDatapoint backendConfig (DataPoint m) p
-    output (_, _, _) = pure ()
+docTracerDatapoint _backendConfig = undefined --TODO trace-dispatcher2
+
+-- Trace $ T.arrow $ T.emit output
+--   where
+--     output p@(_, Just Document {}, DataPoint m) =
+--       docItDatapoint backendConfig (DataPoint m) p
+--     output (_, _, _) = pure ()
 
 documentTracers :: Documented a -> [Trace IO a] -> IO DocCollector
 documentTracers (Documented documented) tracers = do
@@ -102,7 +106,7 @@ documentTracers (Documented documented) tracers = do
       mapM_
         (\ (DocMsg {..}, idx) -> catch (
             T.traceWith tr (emptyLoggingContext,
-                            Just (Document idx dmMarkdown dmMetricsMD dc), dmPrototype))
+                            Left (Document idx dmMarkdown dmMetricsMD dc)))
             (\ (ex :: SomeException) ->
                 modifyIORef docColl
                   (\ docMap ->
@@ -168,12 +172,12 @@ docIt backend formattedMessage (LoggingContext {..},
                         Nothing -> seq mdText (seq mdMetrics (emptyLogDoc mdText mdMetrics))))
         docMap)
 
-docItDatapoint :: MonadIO m =>
+_docItDatapoint :: MonadIO m =>
      BackendConfig
   -> DataPoint
   -> (LoggingContext, Maybe TraceControl, a)
   -> m ()
-docItDatapoint _backend _formattedMessage (LoggingContext {..},
+_docItDatapoint _backend _formattedMessage (LoggingContext {..},
   Just (Document idx mdText _mdMetrics (DocCollector docRef)), _msg) = do
   liftIO $ modifyIORef docRef (\ docMap ->
       Map.insert
